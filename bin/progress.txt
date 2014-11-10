@@ -1,3 +1,0 @@
-
-- need to implement multiple entry cases
-- need to align traveled items
