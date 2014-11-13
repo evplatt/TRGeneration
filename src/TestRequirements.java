@@ -110,15 +110,14 @@ public class TestRequirements {
 		
 		System.out.print("TR for Edge Coverage: ");
 		
-		List<Edge> printedEdges = new LinkedList<Edge>();
-		//List<Node> entryNodeList = graph.GetEntryNodeList();
-		//TravelNodeList(traveledNodes, entryNodeList);
+		List<Edge> traveledEdges = new LinkedList<Edge>();
 		Node node = graph.GetEntryNode();
-		PrintEdge(printedEdges, node);
+		TravelEdges(traveledEdges, node);			
+		PrintTraveledEdges(traveledEdges);		// Display sorted edge list
 		System.out.println();
 	}
 	
-	private void PrintEdge(List<Edge> _printedEdges, Node _node) {
+	private void TravelEdges(List<Edge> _traveledEdges, Node _node) {
 		if(_node == null) {
 			System.out.println("Node is null");
 			return;
@@ -130,8 +129,8 @@ public class TestRequirements {
 			skip = false;
 			edge1 = edgesList.get(i);
 			//System.out.println("[PrintEdge] Edge = " + edge);
-			for(int j = 0; j < _printedEdges.size(); j++) {
-				edge2 = _printedEdges.get(j);
+			for(int j = 0; j < _traveledEdges.size(); j++) {
+				edge2 = _traveledEdges.get(j);
 				if(edge1.isSameEdge(edge2)) {
 					skip = true;
 					break;
@@ -140,14 +139,36 @@ public class TestRequirements {
 			if(skip == false) {
 				int end = edge1.GetEnd();
 				Node node = graph.GetNode(end);
-				_printedEdges.add(edge1);
-				System.out.print("[" + edge1.GetStart() + "," + edge1.GetEnd() + "] ");
+				_traveledEdges.add(edge1);
+				//System.out.print("[" + edge1.GetStart() + "," + edge1.GetEnd() + "] ");
 				
-				PrintEdge(_printedEdges, node);
+				TravelEdges(_traveledEdges, node);
 			}
 		}		
 	}
 	
+	private void PrintTraveledEdges(List<Edge> _traveledEdges) {
+		
+		// Sort edge list
+		Collections.sort(_traveledEdges, new Comparator<Edge>() {
+			public int compare(Edge _e1, Edge _e2) {
+				if(_e1.GetStart() == _e2.GetStart()) {		// (a1,b1) (a2,b2) are compared
+															// If a1=a2, then we compare b1 and b2
+					return (_e1.GetEnd() - _e2.GetEnd());
+				}
+				else										// Otherwise we just compare a1 and a2
+					return (_e1.GetStart() - _e2.GetStart());
+			}
+		});
+		
+		Iterator<Edge> iterator = _traveledEdges.iterator();
+		Edge edge;
+		while(iterator.hasNext()) {
+			edge = iterator.next();
+			System.out.print("[" + edge.GetStart() + "," + edge.GetEnd() + "] ");
+		}
+	}
+
 	public void PrintEdgePairCoverage() {
 		if(graph == null) {
 			System.out.println("Graph is null");
@@ -155,13 +176,14 @@ public class TestRequirements {
 		}
 		
 		System.out.print("TR for Edge-Pair Coverage: ");
-		List<EdgePair> printedEPs = new LinkedList<EdgePair>();
+		List<EdgePair> traveledEPs = new LinkedList<EdgePair>();
 		Node node = graph.GetEntryNode();
-		PrintEdgePair(printedEPs, node);
+		TravelEdgePairs(traveledEPs, node);
+		PrintTraveledEPs(traveledEPs);
 		System.out.println();
 	}
 	
-	private void PrintEdgePair(List<EdgePair> _printedEPs, Node _node) {
+	private void TravelEdgePairs(List<EdgePair> _traveledEPs, Node _node) {
 		if(_node == null) {
 			System.out.println("Node is null");
 			return;
@@ -182,23 +204,48 @@ public class TestRequirements {
 				//System.out.println("Edge2 = " + edge2);
 				ep1 = new EdgePair(edge1, edge2);
 				
-				for(int k = 0; k < _printedEPs.size(); k++) {
-					ep2 = _printedEPs.get(k);
+				for(int k = 0; k < _traveledEPs.size(); k++) {
+					ep2 = _traveledEPs.get(k);
 					if(ep1.isSameEdgePair(ep2)) {
 						skip = true;
 						break;
 					}
 				}
 				if(skip == false) {
-					_printedEPs.add(ep1);
-					System.out.print("[" + ep1.GetStart() + "," + ep1.GetMiddle() + "," + ep1.GetEnd() + "] ");
+					_traveledEPs.add(ep1);
+					//System.out.print("[" + ep1.GetStart() + "," + ep1.GetMiddle() + "," + ep1.GetEnd() + "] ");
 					
-					PrintEdgePair(_printedEPs, node1);
+					TravelEdgePairs(_traveledEPs, node1);
 				}
 			}	
 		}		
 	}
 	
+	private void PrintTraveledEPs(List<EdgePair> _traveledEPs) {
+		
+		// Sort edge list
+		Collections.sort(_traveledEPs, new Comparator<EdgePair>() {
+			public int compare(EdgePair _ep1, EdgePair _ep2) {
+				// When (a1,b1,c1), (a2,b2,c2) are compared
+				if(_ep1.GetStart() == _ep2.GetStart()) {		// If a1=a2, then we compare b1 and b2
+					if(_ep1.GetMiddle() == _ep2.GetMiddle()) {	// If a1=a2 & b1=b2, then we compare c1 and c2
+						return (_ep1.GetEnd() - _ep2.GetEnd());	
+					}
+					return(_ep1.GetMiddle() - _ep2.GetMiddle());// If a1=a2 & b1!=b2, then we just compare b1 and b2
+				}
+				else										// Otherwise we just compare a1 and a2
+					return (_ep1.GetStart() - _ep2.GetStart());
+			}
+		});
+		
+		Iterator<EdgePair> iterator = _traveledEPs.iterator();
+		EdgePair ep;
+		while(iterator.hasNext()) {
+			ep = iterator.next();
+			System.out.print("[" + ep.GetStart() + "," + ep.GetMiddle() + "," + ep.GetEnd() + "] ");
+		}
+	}
+
 	public void PrintPrimePathCoverage() {
 		if(graph == null) {
 			System.out.println("Graph is null");
