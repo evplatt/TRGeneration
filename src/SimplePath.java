@@ -1,3 +1,5 @@
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -104,7 +106,7 @@ public class SimplePath {
 	}
 	
 	// Get a node located at the given index
-	private Node GetNode(int index) {
+	public Node GetNode(int index) {
 		return nodes.get(index);
 	}
 	
@@ -186,7 +188,7 @@ public class SimplePath {
 			node = iterator.next();
 			res += node.GetNodeNumber();
 			if(iterator.hasNext())
-				res += " ";
+				res += ",";
 		}
 		res += "]";
 		return res;
