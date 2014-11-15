@@ -146,9 +146,9 @@ public class Graph {
 		cleanup();
 		addDummyNodes();
 		getNodes();
+		numberNodes();
 		combineNodes();
 		fixNumbering();
-		
 		
 	}
 	
@@ -414,24 +414,25 @@ public class Graph {
 					}
 					edgeStartLines.clear();
 				}
-				else if (line.toLowerCase().matches("switch.*")){
+				else if (lines.get(openline).toLowerCase().matches("^switch.*")){
+
 					//add edges to cases
 					for (int k=openline; k<i; k++){ //iterate through the case statement
-						if (lines.get(k).matches("^case.*")){
+						if (lines.get(k).matches("^(case|default).*")){
 							if (lines.get(k).matches(":$")) addEdge(openline,k);
-							else addEdge(openline,k+1);  //didnt't split lines at : so could be the next line
+							else addEdge(openline,getNextLine(k));  //didnt't split lines at : so could be the next line
 						}
-						if (lines.get(k).matches("^break;")) addEdge(k,i+1);
+						if (lines.get(k).matches("^break;")) addEdge(k,getNextLine(i));
 					}
 				}
 			}
 			
 			else{
 				//we'll add a node and an edge unless these are not executable lines
-				if (!lines.get(i).toLowerCase().matches("^else.*")){
+				if (!lines.get(i).toLowerCase().matches("^(else|case|default).*")){
 					addNode(line,i);
-					if (i>0 && !lines.get(i-1).toLowerCase().matches("^else.*") && !lines.get(i-1).equals("}")){
-						addEdge(i-1, i);
+					if (i>0 && !lines.get(getPrevLine(i)).toLowerCase().matches("^(else|case|default).*") && !lines.get(i-1).equals("}")){
+						addEdge(getPrevLine(i), i);
 					}
 					
 				}
@@ -457,7 +458,7 @@ public class Graph {
 				
 				//mark node as an exit node
 				Node n = nodes.get(i);
-				n.SetExit();
+				n.SetExit(true);
 				nodes.set(i,n);
 				
 				//remove any lines coming from that node
@@ -476,77 +477,92 @@ public class Graph {
 	
 	private void combineNodes(){
 		
+		//add dummy end nodes if needed
+		for (Edge e: edges){
+		boolean foundEnd=false;
+			for (Node n: nodes){
+				if (e.GetEnd() == n.GetNodeNumber()) foundEnd=true;				
+			}
+			if (!foundEnd){
+				Node n = new Node();
+				n.SetSrcLine("");
+				n.SetNodeNumber(e.GetEnd());
+				nodes.add(n);
+			}
+		}
+		
 		//figure out how many edges each node has (to and from the node)
 		for (int i=0; i<nodes.size(); i++){
 			for (Edge e: edges){
-				if (e.GetStart() == nodes.get(i).GetSrcLineIdx()) nodes.get(i).IncEdgesFrom();
-				if (e.GetEnd() == nodes.get(i).GetSrcLineIdx()) nodes.get(i).IncEdgesTo();
+				if (e.GetStart() == nodes.get(i).GetNodeNumber()) nodes.get(i).IncEdgesFrom();
+				if (e.GetEnd() == nodes.get(i).GetNodeNumber()) nodes.get(i).IncEdgesTo();
 			}
 		}
 		
-		//for any pair of consecutive nodes that have only 1 edge between, combine them
-		for (int i=0; i<nodes.size()-1; i++){
+		// for any pair of consecutive nodes that have only 1 edge between, combine them
+		
+		for (int i=0; i<nodes.size(); i++){
 			
-			//find the next node
-			int nextNode=0;
-			while (nextNode<nodes.size() && nodes.get(nextNode).GetSrcLineIdx() != nodes.get(i).GetSrcLineIdx()+1) nextNode++;
-			if (nextNode==nodes.size()) continue;
-	
-			if (nodes.get(i).GetEdgesFrom() == 1 && nodes.get(nextNode).GetEdgesTo() == 1
-				&& !nodes.get(i).GetSrcLine().contains("%forcenode%") && !nodes.get(nextNode).GetSrcLine().contains("%forcenode%")){
+			// if there's more than one edge (or no edges) leaving this node, we can't combine
+			if (nodes.get(i).GetEdgesFrom() != 1 || nodes.get(i).GetSrcLine().contains("%forcenode%")) continue;
+			
+			// find the edge leaving this node
+			int midEdge = 0;
+			while (midEdge < edges.size() && edges.get(midEdge).GetStart() != nodes.get(i).GetNodeNumber()) midEdge++;
+			int nextNode = 0;
+			while (nodes.get(nextNode).GetNodeNumber() != edges.get(midEdge).GetEnd()) nextNode++;
+			
+			// if there's more than one edge entering the next node, we can't combine
+			if (nodes.get(nextNode).GetEdgesTo() > 1 || nodes.get(nextNode).GetSrcLine().contains("%forcenode%")) continue;
+			
+			// If we got here we can combine the nodes
+						
+			//copy the sourceline (we'll delete nextNode)
+			nodes.get(i).SetSrcLine(nodes.get(i).GetSrcLine()+"\n"+nodes.get(nextNode).GetSrcLine());
 				
-				//copy the sourceline (we'll delete nextNode)
-				nodes.get(i).SetSrcLine(nodes.get(i).GetSrcLine()+"\n"+nodes.get(nextNode).GetSrcLine());
-				
-				//find the edges that need to be replaced
-				int midEdge = 0;
-				List<Integer> outEdges = new ArrayList<Integer>();
-				
-				while (midEdge < edges.size() && edges.get(midEdge).GetStart() != nodes.get(i).GetSrcLineIdx()) midEdge++;
-				for (int j=0; j<edges.size(); j++){
-					if (edges.get(j).GetStart() == nodes.get(nextNode).GetSrcLineIdx()) outEdges.add(j);
+			// get all the edges leaving the next node
+			List<Integer> outEdges = new ArrayList<Integer>();
+			for (int j=0; j<edges.size(); j++){
+				if (edges.get(j).GetStart() == nodes.get(nextNode).GetNodeNumber()) outEdges.add(j);
+			}
+			nodes.get(i).ClearEdgesFrom();
+			if (outEdges.size() > 0){ //if false, this is the last node
+				// relink the outbound edges to start at the first node
+				for (int idx: outEdges){
+					edges.set(idx, new Edge(nodes.get(i).GetNodeNumber(), edges.get(idx).GetEnd()));
+					nodes.get(i).IncEdgesFrom();
 				}
-				
-				if (outEdges.size() > 0){ //if false, this is the last node
-					// relink the outbound edges to start at the first node
-					for (int idx: outEdges){
-						edges.set(idx, new Edge(nodes.get(i).GetSrcLineIdx(), edges.get(idx).GetEnd()));
-					}
-				}
-					
-				// remove old middle edge and second node
-				edges.remove(midEdge);
-				nodes.remove(nextNode);
+			}
+			
+			// remove old middle edge and second node
+			edges.remove(midEdge);
+			nodes.remove(nextNode);
  
-			}
+			//keep the current node as start until we can't combine any more
+			i--;
 			
 		}
 		
-		//add dummy end nodes if needed
-		for (Edge e: edges){
-			boolean foundEnd=false;
-			for (Node n: nodes){
-				if (e.GetEnd() == n.GetSrcLineIdx()) foundEnd=true;				
-			}
-			if (!foundEnd){
-				addNode("",e.GetEnd());
-			}
-		}
-	}
-	
-	private void fixNumbering(){
 		
+	}
+
+	private void numberNodes(){
+		
+		//save the oldedges and clear edges
 		List<Edge> oldedges = new ArrayList<Edge>();
 		for (Edge e: edges) oldedges.add(new Edge(e.GetStart(), e.GetEnd()));
 		edges.clear();
 		
-		//This is ugly - number the nodes and add edges with new numbers.  Delete the old edges
+		//number the nodes and add edges with new numbers
+		
+		//First assign node numbers
 		for (int i=0; i<nodes.size(); i++){
 			Node n = nodes.get(i);
 			n.SetNodeNumber(i);
 			nodes.set(i, n);
 		}
 		
+		//add edges using node_numbers instead of source line index
 		for (int i=0; i<oldedges.size(); i++){
 			int newStart=0;
 			int newEnd=0;
@@ -555,6 +571,21 @@ public class Graph {
 			while (newEnd < nodes.size() && nodes.get(newEnd).GetSrcLineIdx() != oldedges.get(i).GetEnd()) newEnd++;
 			
 			addEdge(newStart,newEnd);
+		}
+		
+	}
+
+	private void fixNumbering(){
+		
+		//Renumber the nodes, and the edges accordingly
+		for (int i=0; i<nodes.size(); i++){
+			Node n = nodes.get(i);
+			for (int j=0; j<edges.size(); j++){
+				if (edges.get(j).GetStart() == n.GetNodeNumber()) edges.set(j, new Edge(i, edges.get(j).GetEnd()));
+				if (edges.get(j).GetEnd() == n.GetNodeNumber()) edges.set(j, new Edge(edges.get(j).GetStart(), i));
+			}
+			n.SetNodeNumber(i);
+			nodes.set(i, n);
 		}
 		
 		// mark entry and exits
@@ -568,17 +599,14 @@ public class Graph {
 				if (e.GetEnd() == nodes.get(i).GetNodeNumber()) entry = false;
 			}
 			
-			if (exit || entry){
-				Node n = nodes.get(i);
-				if (exit) n.SetExit();
-				if (entry) n.SetEntry();
-				nodes.set(i,n);
-			}
+			if (!nodes.get(i).isExit()) nodes.get(i).SetExit(exit); //make sure override stays for return nodes
+			nodes.get(i).SetEntry(entry);
 			
 		}
 		
 	}
-
+	
+	
 	private String generateDOT(){
 		
 		String strDOT = "digraph cfg{\n";
@@ -632,11 +660,13 @@ public class Graph {
 	}
 
 	private int getPrevLine(int start){
+		
 		int prevEdge=start-1;
 		
 		while (prevEdge > -1 && lines.get(prevEdge).equals("}")) prevEdge--;
 		
 		return prevEdge;
+		
 	}
 	
 	private int getNextLine(int start){
