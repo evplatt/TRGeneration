@@ -20,8 +20,9 @@ public class Node {
 	
 	public void SetSrcLineIdx(int idx){	srcLineIdx=idx;	}
 	public int GetSrcLineIdx(){	return srcLineIdx; }
-	
+		
 	public int GetEdgesFrom(){ return edgesFrom; }
+	public void ClearEdgesFrom(){	edgesFrom=0; }
 	public void IncEdgesFrom(){	edgesFrom++; }
 	
 	public int GetEdgesTo(){ return edgesTo;	}
@@ -34,10 +35,10 @@ public class Node {
 	public void SetSrcLine(String line) { srcline = line; }
 	
 	public boolean isEntry() { return isEntry;	}
-	public void SetEntry(){	isEntry = true; }
+	public void SetEntry(boolean e){	isEntry = e; }
 	
 	public boolean isExit() { return isExit; }
-	public void SetExit(){ isExit = true; }
+	public void SetExit(boolean e){ isExit = e; }
 	
 	public String toString() {
 		return "Node" + node_number;
