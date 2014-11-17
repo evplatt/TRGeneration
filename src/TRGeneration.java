@@ -25,7 +25,7 @@ public class TRGeneration {
 
 		readSource(args[0]);
 		
-		graph.setDebug(true);
+		//graph.setDebug(true);
 		graph.build();
 		graph.writePng(args.length>1?args[1]:"out.png");
 		

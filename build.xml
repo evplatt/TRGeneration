@@ -10,8 +10,8 @@
     </target>
 
     <target name="jar">
-        <mkdir dir="build/jar"/>
-        <jar destfile="build/jar/TRGeneration.jar" basedir="build/classes">
+        <mkdir dir="www/bin"/>
+        <jar destfile="www/bin/TRGeneration.jar" basedir="build/classes">
             <manifest>
                 <attribute name="Main-Class" value="TRGeneration"/>
             </manifest>
