@@ -1,7 +1,7 @@
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Scanner;
-
+import org.apache.commons.cli.*;
 public class TRGeneration {
 
 	private static Graph graph;
@@ -23,13 +23,32 @@ public class TRGeneration {
 			System.exit(1);
 		}
 
-		readSource(args[0]);
+		Options options = new Options();
+		options.addOption("d", false, "Print debug output"); // does not have a value
+		options.addOption("o", true, "PNG output path"); // does not have a value
+ 		
+		CommandLineParser parser = new BasicParser();
+		CommandLine cmd = null;
+		try{
+			cmd = parser.parse(options, args);
+		} catch (ParseException e) {
+			System.err.println("Caught ParseException: " + e.getMessage());
+		}
+ 
+		readSource(args[args.length-1]);
 		
-		//graph.setDebug(true);
+		if (cmd.hasOption("d")) graph.setDebug(true);
+		
+		String pngpath = "out.png";
+		if (cmd.hasOption("o")) pngpath = cmd.getOptionValue("o");
+					
 		graph.build();
-		graph.writePng(args.length>1?args[1]:"out.png");
+		graph.writePng(pngpath);
 		
 		tr.ReadGraph(graph);
+
+		System.out.println("Test Requirements:\n");
+	
 		tr.PrintNodeCoverage();
 		tr.PrintEdgeCoverage();
 		tr.PrintEdgePairCoverage();

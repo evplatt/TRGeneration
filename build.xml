@@ -1,4 +1,7 @@
 <project>
+    <path id="project-classpath">
+        <fileset dir="lib" includes="*.jar" />
+    </path>
 
     <target name="clean">
         <delete dir="build"/>
@@ -6,12 +9,13 @@
 
     <target name="compile">
         <mkdir dir="build/classes"/>
-        <javac srcdir="src" destdir="build/classes"/>
+        <javac srcdir="src" destdir="build/classes" classpathref="project-classpath" />
     </target>
 
     <target name="jar">
         <mkdir dir="www/bin"/>
         <jar destfile="www/bin/TRGeneration.jar" basedir="build/classes">
+            <zipgroupfileset includes="*.jar" dir="lib" />
             <manifest>
                 <attribute name="Main-Class" value="TRGeneration"/>
             </manifest>

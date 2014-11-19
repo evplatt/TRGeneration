@@ -156,7 +156,7 @@ public class Graph {
 		
 		String strDOT = generateDOT();
 		
-		if (printDebug) System.out.println(strDOT);
+		if (printDebug) System.out.println("\n***** Generated DOT Code:\n\n"+strDOT+"\n\n");
 				
 		File out = new File(path);
 		
@@ -272,12 +272,13 @@ public class Graph {
 				}
 				
 				int idx = lines.get(i).indexOf("(");
-				lines.add(i, "%forcenode%%forcelabel%" + lines.get(i).substring(idx+1)); //move the initialization before the loop
+				lines.add(i, "%forcenode%" + lines.get(i).substring(idx+1)); //move the initialization before the loop
 				i++; //adjust for insertion
 				idx = lines.get(i+2).indexOf(")");
-				lines.add(closeline+1, "%forcenode%%forcelabel%" + lines.get(i+2).substring(0, idx) + ";"); //move the iterator to just before the close
+				lines.add(closeline+1, "%forcenode%" + lines.get(i+2).substring(0, idx) + ";"); //move the iterator to just before the close
 				lines.remove(i+2);
-				lines.set(i, "while ("+lines.get(i+1).substring(0, lines.get(i+1).length()-1).trim()+"){");			
+				lines.set(i, "while ("+lines.get(i+1).substring(0, lines.get(i+1).length()-1).trim()+"){");
+				lines.remove(i+1);			
 			}
 			
 		}
@@ -327,7 +328,7 @@ public class Graph {
 					System.exit(2);
 				}
 				
-				if (lines.get(openline).toLowerCase().matches("^(for|while).*")){
+				if (lines.get(openline).toLowerCase().matches("^(for|while|do).*")){
 					
 					if (lines.get(i-1).equals("}")){
 						lines.add(i, "dummy_node;");
@@ -343,8 +344,8 @@ public class Graph {
 		
 		
 		if (printDebug){
-			String outlines="";
-			for (String s: lines) outlines += s + "\n";
+			String outlines="\n***** Processed Source Code:\n\n";
+			for (int i=0; i<lines.size(); i++) outlines += i+": "+lines.get(i)+"\n";
 			System.out.printf("%s\n", outlines);
 		}
 		
@@ -377,9 +378,14 @@ public class Graph {
 				
 				//for loops, add an edge back to the start
 				if (lines.get(openline).toLowerCase().matches("^(for|while|do).*")){
-					addEdge(getPrevLine(i),openline);
 					if (lines.get(openline).toLowerCase().matches("^(for|while).*")){
+						addEdge(getPrevLine(i),openline);	
 						addEdge(openline,getNextLine(i));
+					}
+					else{ //do
+						addEdge(getPrevLine(openline), getNextLine(openline)); //entry edge that skips the "do" statement
+						addEdge(getPrevLine(i),getNextLine(openline)); //looping edge
+						addEdge(getPrevLine(i),getNextLine(i)); //loop exit edge
 					}
 				}
 				
@@ -429,9 +435,9 @@ public class Graph {
 			
 			else{
 				//we'll add a node and an edge unless these are not executable lines
-				if (!lines.get(i).toLowerCase().matches("^(else|case|default).*")){
+				if (!lines.get(i).toLowerCase().matches("^(do|else|case|default).*")){
 					addNode(line,i);
-					if (i>0 && !lines.get(getPrevLine(i)).toLowerCase().matches("^(else|case|default).*") && !lines.get(i-1).equals("}")){
+					if (i>0 && !lines.get(getPrevLine(i)).toLowerCase().matches("^(do|else|case|default).*") && !lines.get(i-1).equals("}")){
 						addEdge(getPrevLine(i), i);
 					}
 					
@@ -470,13 +476,20 @@ public class Graph {
 			
 		}
 		
-		if (printDebug) for (Edge e: edges) System.out.println("("+e.GetStart()+","+e.GetEnd()+")");
+		if (printDebug){
+			System.out.print("\n***** Edges:\n   - numbers correspond to processed source code line numbers (above)\n   - basic block nodes not yet combined\n\n");
+			for (Edge e: edges) System.out.println("("+e.GetStart()+","+e.GetEnd()+")");
+		}
 		
 				
 	}
 	
 	private void combineNodes(){
-		
+	
+
+		//add entry edge temporarily to prevent combination of loop nodes
+		addEdge(-1,0);
+	
 		//add dummy end nodes if needed
 		for (Edge e: edges){
 		boolean foundEnd=false;
@@ -515,6 +528,9 @@ public class Graph {
 			// if there's more than one edge entering the next node, we can't combine
 			if (nodes.get(nextNode).GetEdgesTo() > 1 || nodes.get(nextNode).GetSrcLine().contains("%forcenode%")) continue;
 			
+			// if it's a self-loop we can't combine
+                        if (nextNode == i) continue;	
+
 			// If we got here we can combine the nodes
 						
 			//copy the sourceline (we'll delete nextNode)
@@ -542,7 +558,9 @@ public class Graph {
 			i--;
 			
 		}
-		
+
+		//delete the temporary entry edge
+		edges.remove(edges.size()-1);
 		
 	}
 
@@ -587,20 +605,19 @@ public class Graph {
 			n.SetNodeNumber(i);
 			nodes.set(i, n);
 		}
-		
+	
+		nodes.get(0).SetEntry(true);
+	
 		// mark entry and exits
 		for (int i=0;i<nodes.size(); i++){
 			
 			boolean exit = true;
-			boolean entry = true;
 			
 			for (Edge e: edges){
 				if (e.GetStart() == nodes.get(i).GetNodeNumber()) exit = false;
-				if (e.GetEnd() == nodes.get(i).GetNodeNumber()) entry = false;
 			}
 			
 			if (!nodes.get(i).isExit()) nodes.get(i).SetExit(exit); //make sure override stays for return nodes
-			nodes.get(i).SetEntry(entry);
 			
 		}
 		
@@ -617,18 +634,18 @@ public class Graph {
 			
 			//attributes
 			if (n.isEntry()){
-				line += "\tstart [style=invis];\n\tstart -> "+n.GetNodeNumber(); // invisible entry node required to draw the entry arrow
+				line += "\tstart [style=invis];\n\tstart -> "+n.GetNodeNumber()+";\n"; // invisible entry node required to draw the entry arrow
 				
 			}
 			if (n.isExit()){
-				line += "\t"+n.GetNodeNumber()+" [penwidth=4]"; // make the exit node bold
+				line += "\t"+n.GetNodeNumber()+" [penwidth=4];\n"; // make the exit node bold
 			}
 			
 			if (n.GetSrcLine().contains("%forcelabel%")){
 			//	line += "\t"+n.node_number+" [xlabel=\"" + removeTags(n.srcline).trim() + "\",labelloc=\"c\"]"; // label the node if forced
 			}
 			
-			if (line.length() > 0) strDOT += line+";\n";
+			if (line.length() > 0) strDOT += line;
 			
 		}
 		

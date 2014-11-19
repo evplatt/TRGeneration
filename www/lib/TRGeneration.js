@@ -5,7 +5,7 @@ function submit_source(){
 	$.ajax({
 		type: 'POST',
 		url: 'process_source.php',
-		data: {src_code: $('#src_code').val()},
+		data: {src_code: $('#src_code').val(), debug: ($('#debug').is(":checked") ? 1 : 0)},
 		dataType: 'json',
 		
 		success: function(data){

@@ -15,6 +15,7 @@
 						<form id="srcform" autocomplete="off">
 							<textarea name="src_code" id="src_code" rows=30 style="width:100%;"></textarea>
 							<div style="width:100%;text-align:center">
+								<input type="checkbox" name="debug" id="debug" /> Print debug output<br/>
 								<input type="button" name="submit_button" id="submit_button" value="Submit" onclick="submit_source();"/>
 							</div>
 						</form>
